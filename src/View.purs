@@ -78,6 +78,42 @@ data ViewEvent
   | HintClicked
   | GiveUpClicked
 
+type PuzzlerViewSpec = 
+  { id :: String
+  , title :: String
+  , board :: GridViewSpec
+  , pieces :: ComponentsContainerViewSpec
+  , instructions :: ComponentsContainerViewSpec
+  , buttons :: ComponentsContainerViewSpec
+  }
+
+foreign import data Event :: * 
+foreign import data Callback :: *
+
+foreign import callback """
+  var callback = function(cfn) {
+    return function(a) {
+      cfn(a)();
+    };
+  };""" :: forall a e. (a -> Eff e Unit) -> Callback
+
+
+type GridViewSpec = 
+  { id :: Maybe String
+  , click :: forall e. Event -> Eff e Unit
+  , squareClass :: Number -> Number -> Maybe String
+  , enterSquare :: forall e. Number -> Number -> Event -> Eff e Unit
+  , exitSquare :: forall e. Number -> Number -> Event -> Eff e Unit 
+  , clickSquare :: forall e. Number -> Number -> Event -> Eff e Unit 
+  , dblClickSquare :: forall e. Number -> Number -> Event -> Eff e Unit
+  }
+
+type ComponentsContainerViewSpec = 
+  { id :: Maybe String
+  , title :: Maybe String
+  , components :: [VTree]
+  }
+
 
 puzzlerView :: S.Channel ViewEvent -> GameState -> VTree
 puzzlerView chan gs =
@@ -122,21 +158,21 @@ viewBoard chan (DropCandidate target valid) b = vnode "div" {id:"board"} $ [svgG
                         , "class":if inTarget r c then clss ++ if valid then " valid" else " invalid"
                                   else clss
                         }
-    enterHook r c =  hook "mouseenter" (const $ S.send chan $ SquareEntered r c)
-    exitHook r c = hook "mouseleave" (const $ S.send chan $ SquareExited r c)
-    clickHook r c = hook "click" (const $ S.send chan $ SquareClicked r c)
+    enterHook r c = callback $ const $ S.send chan $ SquareEntered r c
+    exitHook r c = callback $ const $ S.send chan $ SquareExited r c
+    clickHook r c = callback $ const $ S.send chan $ SquareClicked r c
     boardCell s r c = case getCell r c of
       Empty -> Just $ vnode "rect" { attributes: mkAttr s r c "empty"
                                    , namespace: svgn
-                                   , enter: enterHook r c
-                                   , exit: exitHook r c
-                                   , click: clickHook r c
+                                   , onenter: enterHook r c
+                                   , onexit: exitHook r c
+                                   , onclick: clickHook r c
                                    } []
       Obstacle -> Just $ vnode "rect" { attributes: mkAttr s r c "obstacle"
                                       , namespace: svgn
-                                      , enter: enterHook r c
-                                      , exit: exitHook r c
-                                      , click: clickHook r c
+                                      , onenter: enterHook r c
+                                      , onexit: exitHook r c
+                                      , onclick: clickHook r c
                                       } []
       (P id) -> Just $ vnode "rect" { attributes: { x:c*s
                                                   , y:r*s
@@ -145,11 +181,11 @@ viewBoard chan (DropCandidate target valid) b = vnode "div" {id:"board"} $ [svgG
                                                   , fill: colorMap id
                                                   , "class":"psquare"
                                                   }
-                                    , enter: enterHook r c
-                                    , exit: exitHook r c
-                                    , click: clickHook r c
+                                    , onenter: enterHook r c
+                                    , onexit: exitHook r c
+                                    , onclick: clickHook r c
                                     , namespace: svgn
-                                    , dblclick: hook "dblclick" (const $ S.send chan $ SquareDblClicked r c id)
+                                    , ondblclick: callback $ const $ S.send chan $ SquareDblClicked r c id
                                     } []
 
 colorMap n = 
@@ -179,7 +215,7 @@ viewPieces chan mSel ps =
     pieces = A.map (\p -> 
       vnode "div" 
         { attributes:{"class": if (Just p == mSel) then "piece selected" else "piece"}
-        , clicked: hook "click" (const $ S.send chan $ PieceClicked p)
+        , onclick: callback $ const $ S.send chan $ PieceClicked p
         } [svgGrid (rows p) (cols p) $ pieceCell p] ) ps
 
 
@@ -193,8 +229,8 @@ viewInstructions = vnode "div" {id:"instructions"}
 
 viewButtons chan mSel = vnode "div" {id:"buttons"}
   [ vnode "button" { attributes: {disabled:if isNothing mSel then def else undef}
-                   , click: hook "click" (const $ S.send chan HintClicked)} [vtext "Hint"]
-  , vnode "button" { click: hook "click" (const $ S.send chan GiveUpClicked)} [vtext "Give up"]
+                   , onclick: callback $ const $ S.send chan HintClicked } [vtext "Hint"]
+  , vnode "button" { onclick: callback $ const $ S.send chan GiveUpClicked } [vtext "Give up"]
   ]
 
 foreign import data Undefined :: *
@@ -204,51 +240,6 @@ foreign import undef """
 foreign import def """
     var def = "";
   """ :: Undefined
-
--- Do these listeners really need to be hooks?  Maybe just set the on* stuff.
-type HookFn = Fn2 Node String (Eff (dom::DOM) Unit)
-foreign import data Event :: *
-foreign import data Callback :: *
-type Listener = { event::String, callback::Callback}
-
-listener :: forall e. String -> (Event -> Eff e Unit) -> Listener
-listener s a = {event:s, callback: mkCallback a}
-
-foreign import mkCallback """
-  function mkCallback (act) {
-    return function (event) {
-      act(event)();
-    };
-  } """ :: forall e. (Event -> Eff e Unit) -> Callback
-
-foreign import dataTransfer """
-  function dataTransfer (format) {
-    return function (data) {
-      return function (event) {
-        return function() {
-          event.dataTransfer.setData(format, data);
-        };
-      };
-    };
-  } """ :: forall e. String -> String -> Event -> Eff (dom::DOM|e) Unit
-
-foreign import listen  """
-  function listen (l) {
-    return function (node, prop) {
-      node.addEventListener(l.event, l.callback);
-    };
-  };""" :: Listener -> HookFn
-
-foreign import ignore """
-  function ignore (l) {
-    return function (node, prop) {
-      node.removeEventListener(l.event, l.callback);
-    };
-  }""" :: Listener -> HookFn
-
-hook s act = 
-  let l = listener s act
-  in vhook {hook: listen l, unhook: ignore l}
 
 
 
