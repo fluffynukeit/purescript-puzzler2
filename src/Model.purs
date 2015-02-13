@@ -15,99 +15,59 @@ gameInit :: Board -> GameState
 gameInit b = 
   { board:clear b
   , solution:b
-  , piecesLeft:pieces b
-  , selectedPiece: Nothing
-  , dropTarget: DropCandidate [] true
+  , pieces: pieces b
   , victory : Nothing
   }
 
-processUpdates :: [GameAction] -> GameState -> GameState
-processUpdates =  flip (foldl (flip updateGame))
+try :: GameState -> GameState -> GameState
+try s s' = if isJust s.victory then s else s'
 
-updateGame :: GameAction -> GameState -> GameState
-updateGame _ s | isJust s.victory = s -- if game is over, never update state
-
-updateGame (TogglePiece p) s =
-  case s.selectedPiece of
-    Nothing -> s { selectedPiece = Just p }
-    -- For some reason, using the below 2 lines cause a rapid cycle in piece selection
-    Just p' | p == p' -> s { selectedPiece = Nothing } 
-            | otherwise -> s { selectedPiece = Just p}
-
-updateGame (TargetDrop r c) s = 
-  case s.selectedPiece of
-    Nothing -> s
-    Just p -> s { dropTarget = DropCandidate (targetArea r c p) (isJust $ place r c p s.board) }
-updateGame (DiscardDrop r c) s = 
-  case s.dropTarget of
-    DropCandidate [] _ -> s
-    _ -> s { dropTarget = DropCandidate [] true }
-
-updateGame (Drop r c) s = 
-  case s.selectedPiece >>= flip (place r c) s.board of
-    Nothing -> s
+placeAt p r c s = try s $
+  case place r c p s.board of
+    Nothing -> s -- invalid move.  Leave game as it is
     Just b -> 
-      let piecesLeft = A.delete (fromJust s.selectedPiece) s.piecesLeft
+      let piecesLeft = A.delete p s.pieces
       in s { board = b
-           , selectedPiece = Nothing
-           , piecesLeft = piecesLeft
-           , dropTarget = DropCandidate [] true
+           , pieces = piecesLeft
            , victory = if A.length piecesLeft == 0 then Just true else Nothing
            }
 
-updateGame (Remove r c id) s = 
-  s {board=remove r c s.board, piecesLeft=(findPiece (P id) s.board):s.piecesLeft}
+removeFrom r c s = try s $
+  case status r c s.board of
+    Nothing -> s -- outside board bounds
+    (Just Empty) -> s -- nothing to remove
+    (Just Obstacle) -> s -- can't remove obstacle
+    (Just piece) -> s {board=remove r c s.board, pieces=(findPiece piece s.board):s.pieces}
 
-updateGame Hint s | A.length s.piecesLeft == 1 = s -- don't allow final piece to hint
-updateGame Hint s =
-  case s.selectedPiece of
-    Nothing -> s
-    Just p -> let sel = find isP (toArray p) # fromJust
-                  noObs Obstacle = Empty
-                  noObs p' | sel /= p' = Empty
-                           | otherwise = p'
-                  cleanObs = map noObs s.solution
-                  loc = findIndex p cleanObs # fromJust
-                  newBoard = place loc.r loc.c p s.board
-                  newPieces = A.delete (fromJust s.selectedPiece) s.piecesLeft
-              in case newBoard of
-                   Nothing -> s -- can't place the piece because it's blocked
-                   Just b -> s { board = b
-                               , piecesLeft = newPieces
-                               , dropTarget = DropCandidate [] true
-                               , selectedPiece = Nothing
-                               }
+hint _ s | A.length s.pieces == 1 = s -- don't allow final piece to hint
+hint p s = try s $
+  let sel = find isP (toArray p) # fromJust
+      noObs Obstacle = Empty
+      noObs p' | sel /= p' = Empty
+               | otherwise = p'
+      cleanObs = map noObs s.solution
+      loc = findIndex p cleanObs # fromJust
+      newBoard = place loc.r loc.c p s.board
+      newPieces = A.delete p s.pieces
+  in case newBoard of
+       Nothing -> s -- can't place the piece because it's blocked
+       Just b -> s { board = b
+                   , pieces = newPieces
+                   }
 
 
-updateGame GiveUp s = s { board = s.solution
-                        , victory = Just false
-                        , selectedPiece = Nothing
-                        , piecesLeft = []
-                        }
-
-whenJust :: forall a b. Maybe a -> b -> b -> b
-whenJust m t f | isJust m = t
-               | otherwise = f
-
-data DropCandidate = DropCandidate [{r::Number, c::Number}] Boolean
+giveUp s = try s $ 
+  s { board = s.solution
+    , victory = Just false
+    , pieces = []
+    }
 
 type GameState = 
   { board :: Board
   , solution :: Board
-  , piecesLeft :: [Piece]
-  , selectedPiece :: Maybe Piece
-  , dropTarget :: DropCandidate
+  , pieces :: [Piece]
   , victory :: Maybe Boolean
   }
-
-data GameAction
-  = TogglePiece Piece
-  | TargetDrop Number Number
-  | DiscardDrop Number Number
-  | Drop Number Number 
-  | Remove Number Number Number
-  | Hint
-  | GiveUp
 
 data Square = P Number
             | Obstacle
@@ -266,15 +226,3 @@ remove r c b = go (lkup r c b) r c b
           else updateAt r c (singleton Empty) b #
                 go mp (r+1) c # go mp (r-1) c # go mp r (c+1) # go mp r (c-1)
 
--- Get the location of a piece on the grid
-            
-targetArea :: Number -> Number -> Piece -> [{r::Number,c::Number}]
-targetArea r c p = 
-  let isEmpty {r:r',c:c'} = case lkup (r'-r) (c'-c) p # fromJust of
-        Empty -> true
-        _ -> false
-      coords = do
-        r' <- r A... r+mrow p
-        c' <- c A... c+mcol p
-        return {r:r', c:c'}
-  in A.filter (not <<< isEmpty) coords
