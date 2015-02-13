@@ -8,6 +8,7 @@ module View
  , viewRender
  , windowOnLoad
  , puzzlerInit
+ , gridView
  )
 where
 
@@ -72,7 +73,7 @@ type PuzzlerViewSpec =
   { id :: String
   , title :: String
   , board :: GridViewSpec
-  --, pieces :: ComponentsContainerViewSpec
+  , pieces :: ComponentsContainerViewSpec
   --, instructions :: ComponentsContainerViewSpec
   --, buttons :: ComponentsContainerViewSpec
   }
@@ -89,6 +90,7 @@ foreign import callback """
 
 type GridViewSpec = 
   { id :: String
+  , className :: Maybe String
   , gridSize :: { r :: Number, c :: Number }
   , click :: Callback
   , squareClass :: Number -> Number -> Maybe String
@@ -112,7 +114,7 @@ puzzlerView spec =
     [ vnode "div" {attributes:{"class":"header"}, id:spec.id ++ "-title"} 
       [ vtext spec.title ]
     , gridView spec.board
-    --, componentsContainerView spec.pieces
+    , componentsContainerView spec.pieces
     --, componentsContainerView spec.instructions
     --, componentsContainerView spec.buttons
     ]
@@ -134,7 +136,8 @@ svgGrid nr nc cellFun =
     mkRow rNum = flip A.map (0 A... nc-1) $ cellFun s rNum
 
 gridView :: GridViewSpec -> VTree
-gridView spec = vnode "div" {id:spec.id} $ 
+gridView spec = vnode "div" 
+  {id:spec.id, attributes:{"class": maybeToUndef $ spec.className}} 
   [svgGrid spec.gridSize.r spec.gridSize.c boardCell]
   where
     square s r c clss = vnode "rect"

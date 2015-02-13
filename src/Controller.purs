@@ -18,38 +18,58 @@ controller chan gs =
       Nothing -> "Purescript puzzler!"
       Just true -> "You win!!!!!!"
       Just false -> "You looooose.... :'("
-  , board: boardSpec gs.board Nothing
-  --, pieces: piecesSpec
+  , board: boardSpec gs.board
+  , pieces: piecesAreaSpec gs.pieces
   --, instructions: instructionsSpec
   --, buttons: buttonsSpec
   }
   where
-    boardSpec board mPiece = 
+    boardSpec board = 
       { id: "board"
+      , className: Nothing
       , gridSize: { r: rows board, c: cols board }
       , click: callback $ const $ return unit
-      , squareClass: boardSquare board (\_ _ _ -> "")
-      , squareFill: boardFill board 
+      , squareClass: forSquare board boardSquareClass
+      , squareFill: forSquare board squareFill
       , enterSquare: \_ _ -> callback $ const $ send chan id
       , exitSquare: \_ _ -> callback $ const $ send chan id
       , clickSquare: \_ _ -> callback $ const $ send chan id
       , dblClickSquare: \_ _ -> callback $ const $ send chan id
       }
+    piecesAreaSpec pieces = 
+      let pieceSpec piece = 
+            { id: ""
+            , className: Just "piece"
+            , gridSize: { r: rows piece, c:cols piece }
+            , click: callback $ const $ return unit
+            , squareClass: forSquare piece pieceSquareClass
+            , squareFill: forSquare piece squareFill
+            , enterSquare: \_ _ -> callback $ const $ send chan id
+            , exitSquare: \_ _ -> callback $ const $ send chan id
+            , clickSquare: \_ _ -> callback $ const $ send chan id
+            , dblClickSquare: \_ _ -> callback $ const $ send chan id
+            }
+      in { id: "pieces-area"
+         , title: Just $ "Pieces (" ++ show (A.length pieces) ++ ")"
+         , components: A.map (pieceSpec >>> gridView) pieces
+         }        
 
-boardSquare board modifier r c = 
-  let square = status r c board # fromJust
-      mod = modifier square r c
-  in case square of
-    Empty -> Just $ "empty" ++ mod
-    Obstacle -> Just $ "obstacle" ++ mod
-    (P id) -> Just $ "psquare" ++ mod
+forSquare grid fn r c = status r c grid # fromJust # fn
 
-boardFill board r c = 
-  case status r c board # fromJust of
-    Empty -> Nothing
-    Obstacle -> Nothing
-    (P id) -> Just $ colorMap id
+boardSquareClass Empty = Just "empty"
+boardSquareClass Obstacle = Just "obstacle"
+boardSquareClass (P _) = Just "psquare"
+
+    
+squareFill Empty = Nothing
+squareFill Obstacle = Nothing
+squareFill (P id) = Just $ colorMap id
 
 colorMap n =
   let colors = ["red", "blue", "green", "orange", "yellow", "magenta", "cyan", "gray"]
   in colors A.!! (n % A.length colors) # fromJust
+
+
+pieceSquareClass Empty = Nothing
+pieceSquareClass Obstacle = Nothing
+pieceSquareClass (P _) = Just "psquare"
