@@ -12,7 +12,7 @@ import Data.Maybe.Unsafe
 controller :: forall a. Channel (PuzzlerViewSpec -> PuzzlerViewSpec) 
            -> GameState 
            -> PuzzlerViewSpec
-controller chan gs =
+controller chan gs = PuzzlerViewSpec
   { id: "view"
   , title: case gs.victory of
       Nothing -> "Purescript puzzler!"
@@ -24,7 +24,7 @@ controller chan gs =
   --, buttons: buttonsSpec
   }
   where
-    boardSpec board = 
+    boardSpec board = GridViewSpec
       { id: "board"
       , className: Nothing
       , gridSize: { r: rows board, c: cols board }
@@ -37,22 +37,23 @@ controller chan gs =
       , dblClickSquare: \_ _ -> callback $ const $ send chan id
       }
     piecesAreaSpec pieces = 
-      let pieceSpec piece = 
+      let pieceSpec piece = GridViewSpec
             { id: ""
             , className: Just "piece"
             , gridSize: { r: rows piece, c:cols piece }
             , click: callback $ const $ return unit
-            , squareClass: forSquare piece pieceSquareClass
+            , squareClass: forSquare piece (pieceSquareClass Nothing)
             , squareFill: forSquare piece squareFill
             , enterSquare: \_ _ -> callback $ const $ send chan id
             , exitSquare: \_ _ -> callback $ const $ send chan id
             , clickSquare: \_ _ -> callback $ const $ send chan id
             , dblClickSquare: \_ _ -> callback $ const $ send chan id
             }
-      in { id: "pieces-area"
-         , title: Just $ "Pieces (" ++ show (A.length pieces) ++ ")"
-         , components: A.map (pieceSpec >>> gridView) pieces
-         }        
+      in ComponentsContainerViewSpec
+          { id: "pieces-area"
+          , title: Just $ "Pieces (" ++ show (A.length pieces) ++ ")"
+          , components: A.map pieceSpec pieces
+          }        
 
 forSquare grid fn r c = status r c grid # fromJust # fn
 
@@ -70,6 +71,9 @@ colorMap n =
   in colors A.!! (n % A.length colors) # fromJust
 
 
-pieceSquareClass Empty = Nothing
-pieceSquareClass Obstacle = Nothing
-pieceSquareClass (P _) = Just "psquare"
+pieceSquareClass mSel Empty = Nothing
+pieceSquareClass mSel Obstacle = Nothing
+pieceSquareClass mSel p@(P _) = 
+  if mSel == Just p 
+     then Just "psquare selected" 
+     else Just "psquare"

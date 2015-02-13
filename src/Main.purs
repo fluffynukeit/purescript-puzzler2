@@ -15,6 +15,6 @@ main = do
   c <- channel id
   let initSpec = controller c $ gameInit b
       specSig  = foldp ($) (controller c $ gameInit b) $ subscribe c
-  windowOnLoad $ viewRender puzzlerInit (puzzlerView <~ specSig)
+  windowOnLoad $ viewRender puzzlerInit (display <~ specSig)
 
 

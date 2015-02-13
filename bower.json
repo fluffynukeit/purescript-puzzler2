@@ -17,6 +17,7 @@
     "purescript-control":"*",
     "purescript-foldable-traversable":"*",
     "purescript-virtual-dom":"purescript-contrib/purescript-virtual-dom#master",
-    "purescript-signal":"*"
+    "purescript-signal":"*",
+    "purescript-lens":"*"
   }
 }

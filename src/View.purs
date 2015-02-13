@@ -1,14 +1,13 @@
 module View 
- ( puzzlerView
- , Callback()
+ ( Callback()
  , callback
- , PuzzlerViewSpec()
- , GridViewSpec()
- , ComponentsContainerViewSpec()
+ , Display, display
+ , PuzzlerViewSpec(..)
+ , GridViewSpec(..)
+ , ComponentsContainerViewSpec(..)
  , viewRender
  , windowOnLoad
  , puzzlerInit
- , gridView
  )
 where
 
@@ -23,6 +22,8 @@ import qualified Signal as S
 import qualified Signal.Channel as S
 import Data.Maybe
 import Data.Foldable
+
+import Optic.Lens
 
 
 foreign import windowOnLoad """
@@ -69,15 +70,6 @@ viewRender init svt = do
       n' <- patch (diff t t') n
       return {n:n',t:t'}
 
-type PuzzlerViewSpec = 
-  { id :: String
-  , title :: String
-  , board :: GridViewSpec
-  , pieces :: ComponentsContainerViewSpec
-  --, instructions :: ComponentsContainerViewSpec
-  --, buttons :: ComponentsContainerViewSpec
-  }
-
 foreign import data Callback :: *
 
 foreign import callback """
@@ -87,8 +79,44 @@ foreign import callback """
     };
   };""" :: forall a e. (a -> Eff (|e) Unit) -> Callback
 
+class Display a where
+  display :: a -> VTree
 
-type GridViewSpec = 
+
+
+
+newtype PuzzlerViewSpec = PuzzlerViewSpec
+  { id :: String
+  , title :: String
+  , board :: GridViewSpec
+  , pieces :: ComponentsContainerViewSpec GridViewSpec
+  --, instructions :: ComponentsContainerViewSpec
+  --, buttons :: ComponentsContainerViewSpec
+  }
+
+_PuzzlerViewSpec = lens (\(PuzzlerViewSpec a) -> a) (\_ n -> PuzzlerViewSpec n)
+
+puzzlerInit :: VTree
+puzzlerInit = vtext "Loading..."
+
+puzzlerView :: PuzzlerViewSpec -> VTree
+puzzlerView (PuzzlerViewSpec spec) =
+  vnode "div" {id:spec.id} 
+    [ vnode "div" {attributes:{"class":"header"}, id:spec.id ++ "-title"} 
+      [ vtext spec.title ]
+    , gridView spec.board
+    , componentsContainerView spec.pieces
+    --, componentsContainerView spec.instructions
+    --, componentsContainerView spec.buttons
+    ]
+
+instance puzzlerDisplay :: Display PuzzlerViewSpec where
+  display = puzzlerView
+
+
+
+
+newtype GridViewSpec = GridViewSpec
   { id :: String
   , className :: Maybe String
   , gridSize :: { r :: Number, c :: Number }
@@ -100,27 +128,6 @@ type GridViewSpec =
   , clickSquare :: Number -> Number -> Callback
   , dblClickSquare :: Number -> Number -> Callback
   }
-
-type ComponentsContainerViewSpec = 
-  { id :: String
-  , title :: Maybe String
-  , components :: [VTree]
-  }
-
-
-puzzlerView :: PuzzlerViewSpec -> VTree
-puzzlerView spec =
-  vnode "div" {id:spec.id} 
-    [ vnode "div" {attributes:{"class":"header"}, id:spec.id ++ "-title"} 
-      [ vtext spec.title ]
-    , gridView spec.board
-    , componentsContainerView spec.pieces
-    --, componentsContainerView spec.instructions
-    --, componentsContainerView spec.buttons
-    ]
-
-puzzlerInit :: VTree
-puzzlerInit = vtext "Loading..."
 
 svgn = "http://www.w3.org/2000/svg"
 
@@ -136,7 +143,7 @@ svgGrid nr nc cellFun =
     mkRow rNum = flip A.map (0 A... nc-1) $ cellFun s rNum
 
 gridView :: GridViewSpec -> VTree
-gridView spec = vnode "div" 
+gridView (GridViewSpec spec) = vnode "div" 
   {id:spec.id, attributes:{"class": maybeToUndef $ spec.className}} 
   [svgGrid spec.gridSize.r spec.gridSize.c boardCell]
   where
@@ -156,9 +163,18 @@ gridView spec = vnode "div"
       } []
     boardCell s r c = square s r c <$> spec.squareClass r c 
 
-componentsContainerView :: ComponentsContainerViewSpec -> VTree
-componentsContainerView spec = 
-  let comps =  [vnode "div" {id:spec.id ++ "-components"} spec.components]
+instance gridDisplay :: Display GridViewSpec where
+  display = gridView
+
+newtype ComponentsContainerViewSpec a = ComponentsContainerViewSpec
+  { id :: String
+  , title :: Maybe String
+  , components :: [a]
+  }
+
+componentsContainerView :: forall a. (Display a) => ComponentsContainerViewSpec a -> VTree
+componentsContainerView (ComponentsContainerViewSpec spec) = 
+  let comps =  [vnode "div" {id:spec.id ++ "-components"} (A.map display spec.components)]
       children = maybe 
         comps 
         (\t -> (vnode "div" {attributes:{"class":"header"}} [vtext t]):comps)
@@ -174,6 +190,11 @@ foreign import define """
   var define = function(a) {
       return a;
   }""" :: forall a. a -> Undefined
+
+
+instance displayContainer :: (Display a) 
+          => Display (ComponentsContainerViewSpec a) where
+  display = componentsContainerView
 
 maybeToUndef Nothing = undef
 maybeToUndef (Just a) = define a
