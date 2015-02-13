@@ -1,4 +1,17 @@
-module Model where
+module Model 
+  ( gameInit
+  , placeAt
+  , removeFrom
+  , hint
+  , giveUp
+  , status
+  , mkBoard
+  , Board()
+  , Piece()
+  , GameState()
+  , Square(..)
+  )
+where
 
 
 import Model.Grid

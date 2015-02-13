@@ -8,6 +8,8 @@ import qualified Data.Array as A
 import Data.Maybe
 import Data.Maybe.Unsafe
 
+import Optic.Core
+
 
 controller :: forall a. Channel (PuzzlerViewSpec -> PuzzlerViewSpec) 
            -> GameState 
@@ -30,20 +32,24 @@ controller chan gs = PuzzlerViewSpec
       , gridSize: { r: rows board, c: cols board }
       , click: callback $ const $ return unit
       , squareClass: forSquare board boardSquareClass
-      , squareFill: forSquare board squareFill
+      , squareFill: forSquare board squareFillP
       , enterSquare: \_ _ -> callback $ const $ send chan id
       , exitSquare: \_ _ -> callback $ const $ send chan id
       , clickSquare: \_ _ -> callback $ const $ send chan id
       , dblClickSquare: \_ _ -> callback $ const $ send chan id
       }
-    piecesAreaSpec pieces = 
-      let pieceSpec piece = GridViewSpec
+    piecesAreaSpec ps = 
+      let pieceSpec mSel p = GridViewSpec
             { id: ""
-            , className: Just "piece"
-            , gridSize: { r: rows piece, c:cols piece }
-            , click: callback $ const $ return unit
-            , squareClass: forSquare piece (pieceSquareClass Nothing)
-            , squareFill: forSquare piece squareFill
+            , className: if (mSel == Just p) then Just "piece selected" else Just "piece"
+            , gridSize: { r: rows p, c:cols p }
+
+            , click: callback $ const $ send chan $ 
+                _PuzzlerViewSpec..pieces.._ComponentsContainerViewSpec..components .~
+                  A.map (pieceSpec (if isNothing mSel then Just p else Nothing)) ps
+
+            , squareClass: forSquare p pieceSquareClass 
+            , squareFill: forSquare p squareFillP
             , enterSquare: \_ _ -> callback $ const $ send chan id
             , exitSquare: \_ _ -> callback $ const $ send chan id
             , clickSquare: \_ _ -> callback $ const $ send chan id
@@ -51,10 +57,11 @@ controller chan gs = PuzzlerViewSpec
             }
       in ComponentsContainerViewSpec
           { id: "pieces-area"
-          , title: Just $ "Pieces (" ++ show (A.length pieces) ++ ")"
-          , components: A.map pieceSpec pieces
+          , title: Just $ "Pieces (" ++ show (A.length ps) ++ ")"
+          , components: A.map (pieceSpec Nothing) ps
           }        
 
+forSquare :: forall a. Grid Square -> (Square -> a) -> Number -> Number -> a
 forSquare grid fn r c = status r c grid # fromJust # fn
 
 boardSquareClass Empty = Just "empty"
@@ -62,18 +69,15 @@ boardSquareClass Obstacle = Just "obstacle"
 boardSquareClass (P _) = Just "psquare"
 
     
-squareFill Empty = Nothing
-squareFill Obstacle = Nothing
-squareFill (P id) = Just $ colorMap id
+squareFillP Empty = Nothing
+squareFillP Obstacle = Nothing
+squareFillP (P id) = Just $ colorMap id
 
 colorMap n =
   let colors = ["red", "blue", "green", "orange", "yellow", "magenta", "cyan", "gray"]
   in colors A.!! (n % A.length colors) # fromJust
 
 
-pieceSquareClass mSel Empty = Nothing
-pieceSquareClass mSel Obstacle = Nothing
-pieceSquareClass mSel p@(P _) = 
-  if mSel == Just p 
-     then Just "psquare selected" 
-     else Just "psquare"
+pieceSquareClass Empty = Nothing
+pieceSquareClass Obstacle = Nothing
+pieceSquareClass p@(P _) = Just "psquare"

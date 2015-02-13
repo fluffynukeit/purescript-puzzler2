@@ -1,14 +1,5 @@
 module View 
- ( Callback()
- , callback
- , Display, display
- , PuzzlerViewSpec(..)
- , GridViewSpec(..)
- , ComponentsContainerViewSpec(..)
- , viewRender
- , windowOnLoad
- , puzzlerInit
- )
+ 
 where
 
 import VirtualDOM.VTree
@@ -95,6 +86,10 @@ newtype PuzzlerViewSpec = PuzzlerViewSpec
   }
 
 _PuzzlerViewSpec = lens (\(PuzzlerViewSpec a) -> a) (\_ n -> PuzzlerViewSpec n)
+_id = lens (\o -> o.id) (\o x -> o{id = x})
+title = lens (\o -> o.title) (\o x -> o{title = x})
+board = lens (\o -> o.board) (\o x -> o{board = x})
+pieces = lens (\o -> o.pieces) (\o x -> o{pieces = x})
 
 puzzlerInit :: VTree
 puzzlerInit = vtext "Loading..."
@@ -128,6 +123,17 @@ newtype GridViewSpec = GridViewSpec
   , clickSquare :: Number -> Number -> Callback
   , dblClickSquare :: Number -> Number -> Callback
   }
+
+_GridViewSpec = lens (\(GridViewSpec a) -> a) (\_ n -> GridViewSpec n)
+className = lens (\o -> o.className) (\o x -> o{className = x})
+gridSize = lens (\o -> o.gridSize) (\o x -> o{gridSize = x})
+click = lens (\o -> o.click) (\o x -> o{click = x})
+squareClass = lens (\o -> o.squareClass) (\o x -> o{squareClass = x})
+squareFill = lens (\o -> o.squareFill) (\o x -> o{squareFill = x})
+exitSquare = lens (\o -> o.exitSquare) (\o x -> o{exitSquare = x})
+clickSquare = lens (\o -> o.clickSquare) (\o x -> o{clickSquare = x})
+dblClickSquare = lens (\o -> o.dlbClickSquare) (\o x -> o{dblClickSquare = x})
+
 
 svgn = "http://www.w3.org/2000/svg"
 
@@ -171,6 +177,9 @@ newtype ComponentsContainerViewSpec a = ComponentsContainerViewSpec
   , title :: Maybe String
   , components :: [a]
   }
+
+_ComponentsContainerViewSpec = lens (\(ComponentsContainerViewSpec a) -> a) (\_ n -> ComponentsContainerViewSpec n)
+components = lens (\o -> o.components) (\o x -> o{components = x})
 
 componentsContainerView :: forall a. (Display a) => ComponentsContainerViewSpec a -> VTree
 componentsContainerView (ComponentsContainerViewSpec spec) = 
