@@ -24,7 +24,7 @@ controller chan gs = PuzzlerViewSpec
   , board: boardSpec gs.board
   , pieces: piecesAreaSpec gs.pieces gs
   , instructions: instructionsSpec
-  --, buttons: buttonsSpec
+  , buttons: buttonsSpec
   }
   where
     boardSpec board = GridViewSpec
@@ -77,6 +77,12 @@ controller chan gs = PuzzlerViewSpec
                           Nothing -> oldSpec -- no behavior change
                           Just gs' -> controller chan gs' -- build a "new" game with one less piece
                     )
+                    -- Now enable hinting of the piece.  This would be easier if
+                    -- the buttons weren't in a components container and were
+                    -- accessible directly via lens
+                    
+
+
                       
             , squareClass: forSquare p pieceSquareClass 
             , squareFill: forSquare p squareFillP
@@ -98,6 +104,20 @@ controller chan gs = PuzzlerViewSpec
                     , p "Double click: Remove piece from board."
                     , p "Hint: Place the selected block in correct location if available."
                     , p "Give up: Show a solution."
+                    ]
+      }
+    buttonsSpec = ComponentsContainerViewSpec
+      { id: "buttons"
+      , title: Nothing
+      , components: [ ButtonViewSpec { enabled: false
+                                     , label: "Hint"
+                                     , click: callback $ const $ send chan $ defer \_ -> id
+                                     }
+                    , ButtonViewSpec { enabled: true
+                                     , label: "Give up"
+                                     , click: callback $ const $ send chan $ defer \_ -> \_ ->
+                                                controller chan (giveUp gs)
+                                     }
                     ]
       }
 

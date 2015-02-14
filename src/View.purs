@@ -80,14 +80,13 @@ instance vtreeDisplay :: Display VTree where
 
 p s = vnode "p" {} [vtext s]
 
-
 newtype PuzzlerViewSpec = PuzzlerViewSpec
   { id :: String
   , title :: String
   , board :: GridViewSpec
   , pieces :: ComponentsContainerViewSpec GridViewSpec
   , instructions :: ComponentsContainerViewSpec VTree
-  --, buttons :: ComponentsContainerViewSpec
+  , buttons :: ComponentsContainerViewSpec ButtonViewSpec
   }
 
 _PuzzlerViewSpec = lens (\(PuzzlerViewSpec a) -> a) (\_ n -> PuzzlerViewSpec n)
@@ -107,7 +106,7 @@ puzzlerView (PuzzlerViewSpec spec) =
     , gridView spec.board
     , componentsContainerView spec.pieces
     , componentsContainerView spec.instructions
-    --, componentsContainerView spec.buttons
+    , componentsContainerView spec.buttons
     ]
 
 instance puzzlerDisplay :: Display PuzzlerViewSpec where
@@ -216,4 +215,19 @@ instance displayContainer :: (Display a)
 
 maybeToUndef Nothing = undef
 maybeToUndef (Just a) = define a
+
+
+newtype ButtonViewSpec = ButtonViewSpec
+  { label :: String
+  , enabled :: Boolean
+  , click :: Callback
+  }
+
+buttonView (ButtonViewSpec spec) = vnode "button" 
+  { attributes: {disabled: if not spec.enabled then define "" else undef}
+  , onclick: spec.click
+  } [vtext spec.label]
+
+instance displayButton :: Display ButtonViewSpec where
+  display = buttonView
 
