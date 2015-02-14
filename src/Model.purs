@@ -1,11 +1,13 @@
 module Model 
   ( gameInit
   , placeAt
+  , place
   , removeFrom
   , hint
   , giveUp
   , status
   , mkBoard
+  , filled
   , Board()
   , Piece()
   , GameState()
@@ -35,15 +37,16 @@ gameInit b =
 try :: GameState -> GameState -> GameState
 try s s' = if isJust s.victory then s else s'
 
-placeAt p r c s = try s $
+placeAt :: Number -> Number -> Piece -> GameState -> Maybe GameState
+placeAt r c p s = 
   case place r c p s.board of
-    Nothing -> s -- invalid move.  Leave game as it is
+    Nothing -> Nothing
     Just b -> 
       let piecesLeft = A.delete p s.pieces
-      in s { board = b
-           , pieces = piecesLeft
-           , victory = if A.length piecesLeft == 0 then Just true else Nothing
-           }
+      in Just s { board = b
+                , pieces = piecesLeft
+                , victory = if A.length piecesLeft == 0 then Just true else Nothing
+                }
 
 removeFrom r c s = try s $
   case status r c s.board of
@@ -239,3 +242,7 @@ remove r c b = go (lkup r c b) r c b
           else updateAt r c (singleton Empty) b #
                 go mp (r+1) c # go mp (r-1) c # go mp r (c+1) # go mp r (c-1)
 
+filled r c b = case status r c b of
+  Nothing -> false
+  Just Empty -> false
+  _ -> true

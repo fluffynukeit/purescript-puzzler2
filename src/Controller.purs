@@ -22,7 +22,7 @@ controller chan gs = PuzzlerViewSpec
       Just true -> "You win!!!!!!"
       Just false -> "You looooose.... :'("
   , board: boardSpec gs.board
-  , pieces: piecesAreaSpec gs.pieces
+  , pieces: piecesAreaSpec gs.pieces gs
   --, instructions: instructionsSpec
   --, buttons: buttonsSpec
   }
@@ -39,21 +39,43 @@ controller chan gs = PuzzlerViewSpec
       , clickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
       , dblClickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
       }
-    piecesAreaSpec ps = 
-      let pieceSpec mSel p = GridViewSpec
+    piecesAreaSpec ps gs = 
+      let b = gs.board
+          pieceSpec mSel p = GridViewSpec
             { id: ""
             , className: if (mSel == Just p) then Just "piece selected" else Just "piece"
             , gridSize: { r: rows p, c:cols p }
 
             , click: callback $ const $ send chan $ defer \_ -> 
-                _PuzzlerViewSpec..pieces.._ComponentsContainerViewSpec..components .~
-                  A.map (pieceSpec (case mSel of
-                                      Nothing -> Just p
-                                      Just sel | sel == p -> Nothing
-                                      _ -> Just p
-                                    ) 
-                        ) ps
+                let newSelection = case mSel of
+                      Just sel | sel == p -> Nothing -- unselecting currently selected piece
+                      _ -> Just p -- new selection
 
+                in  if isNothing newSelection
+                    -- if no piece is selected, return to base spec
+                    then \_ -> controller chan gs
+                    -- else, modify the behavior of the pieces area and board to
+                    -- highlight the selected piece and enable drop preview
+                    else
+                    -- first change how the pieces are drawn so border is shown
+                    (_PuzzlerViewSpec..pieces.._ComponentsContainerViewSpec..components .~
+                      A.map (pieceSpec newSelection) ps
+                    )
+                    .. -- Now change hover behavior for board
+                    (_PuzzlerViewSpec..board.._GridViewSpec..enterSquare .~ \r c -> callback $ const $ send chan $ defer \_ ->
+                      let validityMod = maybe "invalid " (const "valid ") (place r c p b)
+                      in _PuzzlerViewSpec..board.._GridViewSpec..squareClass .~ \r' c' -> 
+                          if filled (r'-r) (c'-c) p
+                            then (++) validityMod <$> forSquare b boardSquareClass r' c' -- valid/invalid coloring
+                            else forSquare b boardSquareClass r' c' -- standard coloring
+                    )      
+                    .. -- Now change click behavior of board
+                    (_PuzzlerViewSpec..board.._GridViewSpec..clickSquare .~ \r c -> callback $ const $ send chan $ defer \_ ->
+                      \oldSpec -> case placeAt r c p gs of
+                          Nothing -> oldSpec -- no behavior change
+                          Just gs' -> controller chan gs' -- build a "new" game with one less piece
+                    )
+                      
             , squareClass: forSquare p pieceSquareClass 
             , squareFill: forSquare p squareFillP
             , enterSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id

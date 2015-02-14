@@ -132,6 +132,7 @@ gridSize = lens (\o -> o.gridSize) (\o x -> o{gridSize = x})
 click = lens (\o -> o.click) (\o x -> o{click = x})
 squareClass = lens (\o -> o.squareClass) (\o x -> o{squareClass = x})
 squareFill = lens (\o -> o.squareFill) (\o x -> o{squareFill = x})
+enterSquare = lens (\o -> o.enterSquare) (\o x -> o{enterSquare = x})
 exitSquare = lens (\o -> o.exitSquare) (\o x -> o{exitSquare = x})
 clickSquare = lens (\o -> o.clickSquare) (\o x -> o{clickSquare = x})
 dblClickSquare = lens (\o -> o.dlbClickSquare) (\o x -> o{dblClickSquare = x})
@@ -167,10 +168,10 @@ gridView (GridViewSpec spec) = vnode "div"
                    , "class": clss
                    }
       , namespace: svgn
-      , onenter: spec.enterSquare
-      , onexit: spec.exitSquare
-      , onclick: spec.clickSquare 
-      , ondblclick: spec.dblClickSquare 
+      , onmouseenter: spec.enterSquare r c
+      , onmouseleave: spec.exitSquare r c
+      , onclick: spec.clickSquare r c
+      , ondblclick: spec.dblClickSquare r c
       } []
     boardCell s r c = square s r c <$> spec.squareClass r c 
 
