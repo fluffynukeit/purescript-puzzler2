@@ -23,7 +23,7 @@ controller chan gs = PuzzlerViewSpec
       Just false -> "You looooose.... :'("
   , board: boardSpec gs.board
   , pieces: piecesAreaSpec gs.pieces gs
-  --, instructions: instructionsSpec
+  , instructions: instructionsSpec
   --, buttons: buttonsSpec
   }
   where
@@ -38,6 +38,8 @@ controller chan gs = PuzzlerViewSpec
       , exitSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
       , clickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
       , dblClickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+          -- How to remove pieces here?  Old state might already be bound to 
+          -- closures, so no way to update game state in the middle of an action,
       }
     piecesAreaSpec ps gs = 
       let b = gs.board
@@ -88,6 +90,16 @@ controller chan gs = PuzzlerViewSpec
           , title: Just $ "Pieces (" ++ show (A.length ps) ++ ")"
           , components: A.map (pieceSpec Nothing) ps
           }        
+    instructionsSpec = ComponentsContainerViewSpec
+      { id: "instructions"
+      , title: Nothing
+      , components: [ p "Place the pieces on the board to solve the puzzle!"
+                    , p "Click: Select/place piece."
+                    , p "Double click: Remove piece from board."
+                    , p "Hint: Place the selected block in correct location if available."
+                    , p "Give up: Show a solution."
+                    ]
+      }
 
 forSquare :: forall a. Grid Square -> (Square -> a) -> Number -> Number -> a
 forSquare grid fn r c = status r c grid # fromJust # fn

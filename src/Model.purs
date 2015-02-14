@@ -48,12 +48,11 @@ placeAt r c p s =
                 , victory = if A.length piecesLeft == 0 then Just true else Nothing
                 }
 
-removeFrom r c s = try s $
+removeFrom :: Number -> Number -> GameState -> Maybe GameState
+removeFrom r c s = 
   case status r c s.board of
-    Nothing -> s -- outside board bounds
-    (Just Empty) -> s -- nothing to remove
-    (Just Obstacle) -> s -- can't remove obstacle
-    (Just piece) -> s {board=remove r c s.board, pieces=(findPiece piece s.board):s.pieces}
+    (Just piece) -> Just s {board=remove r c s.board, pieces=(findPiece piece s.board):s.pieces}
+    _ -> Nothing
 
 hint _ s | A.length s.pieces == 1 = s -- don't allow final piece to hint
 hint p s = try s $

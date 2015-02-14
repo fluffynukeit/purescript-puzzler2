@@ -75,7 +75,10 @@ foreign import callback """
 class Display a where
   display :: a -> VTree
 
+instance vtreeDisplay :: Display VTree where
+  display = id
 
+p s = vnode "p" {} [vtext s]
 
 
 newtype PuzzlerViewSpec = PuzzlerViewSpec
@@ -83,7 +86,7 @@ newtype PuzzlerViewSpec = PuzzlerViewSpec
   , title :: String
   , board :: GridViewSpec
   , pieces :: ComponentsContainerViewSpec GridViewSpec
-  --, instructions :: ComponentsContainerViewSpec
+  , instructions :: ComponentsContainerViewSpec VTree
   --, buttons :: ComponentsContainerViewSpec
   }
 
@@ -103,7 +106,7 @@ puzzlerView (PuzzlerViewSpec spec) =
       [ vtext spec.title ]
     , gridView spec.board
     , componentsContainerView spec.pieces
-    --, componentsContainerView spec.instructions
+    , componentsContainerView spec.instructions
     --, componentsContainerView spec.buttons
     ]
 
