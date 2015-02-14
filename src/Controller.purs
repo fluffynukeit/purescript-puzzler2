@@ -9,9 +9,10 @@ import Data.Maybe
 import Data.Maybe.Unsafe
 
 import Optic.Core
+import Data.Lazy
 
 
-controller :: forall a. Channel (PuzzlerViewSpec -> PuzzlerViewSpec) 
+controller :: forall a. Channel (Lazy (PuzzlerViewSpec -> PuzzlerViewSpec))
            -> GameState 
            -> PuzzlerViewSpec
 controller chan gs = PuzzlerViewSpec
@@ -33,10 +34,10 @@ controller chan gs = PuzzlerViewSpec
       , click: callback $ const $ return unit
       , squareClass: forSquare board boardSquareClass
       , squareFill: forSquare board squareFillP
-      , enterSquare: \_ _ -> callback $ const $ send chan id
-      , exitSquare: \_ _ -> callback $ const $ send chan id
-      , clickSquare: \_ _ -> callback $ const $ send chan id
-      , dblClickSquare: \_ _ -> callback $ const $ send chan id
+      , enterSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+      , exitSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+      , clickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+      , dblClickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
       }
     piecesAreaSpec ps = 
       let pieceSpec mSel p = GridViewSpec
@@ -44,16 +45,21 @@ controller chan gs = PuzzlerViewSpec
             , className: if (mSel == Just p) then Just "piece selected" else Just "piece"
             , gridSize: { r: rows p, c:cols p }
 
-            , click: callback $ const $ send chan $ 
+            , click: callback $ const $ send chan $ defer \_ -> 
                 _PuzzlerViewSpec..pieces.._ComponentsContainerViewSpec..components .~
-                  A.map (pieceSpec (if isNothing mSel then Just p else Nothing)) ps
+                  A.map (pieceSpec (case mSel of
+                                      Nothing -> Just p
+                                      Just sel | sel == p -> Nothing
+                                      _ -> Just p
+                                    ) 
+                        ) ps
 
             , squareClass: forSquare p pieceSquareClass 
             , squareFill: forSquare p squareFillP
-            , enterSquare: \_ _ -> callback $ const $ send chan id
-            , exitSquare: \_ _ -> callback $ const $ send chan id
-            , clickSquare: \_ _ -> callback $ const $ send chan id
-            , dblClickSquare: \_ _ -> callback $ const $ send chan id
+            , enterSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+            , exitSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+            , clickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
+            , dblClickSquare: \_ _ -> callback $ const $ send chan $ defer \_ -> id
             }
       in ComponentsContainerViewSpec
           { id: "pieces-area"

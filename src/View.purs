@@ -66,9 +66,11 @@ foreign import data Callback :: *
 foreign import callback """
   var callback = function(cfn) {
     return function(a) {
+      console.log('running cb');
       cfn(a)();
     };
   };""" :: forall a e. (a -> Eff (|e) Unit) -> Callback
+
 
 class Display a where
   display :: a -> VTree
@@ -150,7 +152,10 @@ svgGrid nr nc cellFun =
 
 gridView :: GridViewSpec -> VTree
 gridView (GridViewSpec spec) = vnode "div" 
-  {id:spec.id, attributes:{"class": maybeToUndef $ spec.className}} 
+  { id:spec.id
+  , attributes:{"class": maybeToUndef $ spec.className}
+  , onclick: spec.click
+  } 
   [svgGrid spec.gridSize.r spec.gridSize.c boardCell]
   where
     square s r c clss = vnode "rect"
